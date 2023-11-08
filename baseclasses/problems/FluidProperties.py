@@ -3,6 +3,9 @@ import warnings
 
 class FluidProperties:
     """
+    This class is the parent of pyAero_problem and defines the basic flow properties to be passed to the solver.
+    It also has a method to update the dynamic viscosity through the Sutherland's law based on flow temperature and other optional user inputs.
+
     Parameters
     ----------
 
@@ -16,14 +19,20 @@ class FluidProperties:
         The specific gas constant. By default we use air.
 
     SSuthDim : float (default = 110.55)
+        The Sutherland temperature for Sutherland's Law.
 
     muSuthDim : float (default = 1.716e-5)
+        The viscosity at the reference temperature for Sutherland's Law.
+        If you want to directly specify a viscosity for your fluid (e.g., running a case in water),
+        a hack to achieve this is to set `muSuthDim` to the desired viscosity and `T` to `TSuthDim`.
+        By doing so, `mu` will be equal to `muSuthDim`.
 
     TSuthDim : float (default = 273.15)
+        The reference temperature for Sutherland's Law.
+
     """
 
     def __init__(self, **kwargs):
-
         # Check if we have english units:
         self.englishUnits = False
         if "englishUnits" in kwargs:
@@ -51,7 +60,7 @@ class FluidProperties:
             Ra2K = 1.8  # official conversion from Rankine to Kelvin
 
             if self.englishUnits:
-                self.R = R_air / Ra2K / m2ft ** 2  # 1716.574 ft-lbf / slug / R
+                self.R = R_air / Ra2K / m2ft**2  # 1716.574 ft-lbf / slug / R
             else:
                 self.R = R_air  # 287.055 J / kg / K
 
@@ -73,7 +82,8 @@ class FluidProperties:
             if not all(name in kwargs for name in ("muSuthDim", "muSuthDim", "TSuthDim")):
                 warnings.warn(
                     "One or more constant for Sutherlands law might be missing!\
-                Make sure to provide all three!"
+                Make sure to provide all three!",
+                    stacklevel=2,
                 )
 
         if "SSuthDim" in kwargs:

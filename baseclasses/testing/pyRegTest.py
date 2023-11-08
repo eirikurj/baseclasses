@@ -3,7 +3,8 @@ try:
 except ImportError:
     # parallel functions will throw errors
     MPI = None
-import numpy
+from pprint import pformat
+import numpy as np
 import os
 import sys
 from contextlib import contextmanager
@@ -190,7 +191,7 @@ class BaseRegTest:
             The name of the dictionary
         d : dict
             The dictionary to add
-        **kwargs
+        \*\*kwargs
             See :meth:`getTol <baseclasses.BaseRegTest.getTol>` on how to specif tolerances.
         """
         with multi_proc_exception_check(self.comm):
@@ -208,7 +209,7 @@ class BaseRegTest:
             The name of the value
         values : ndarray
             The array to be added. This must be a numpy array distributed over self.comm
-        **kwargs
+        \*\*kwargs
             See :meth:`getTol <baseclasses.BaseRegTest.getTol>` on how to specif tolerances.
         """
         if self.comm is None:
@@ -228,12 +229,12 @@ class BaseRegTest:
             The name of the value
         values : ndarray
             The array to be added. This must be a numpy array distributed over self.comm
-        **kwargs
+        \*\*kwargs
             See :meth:`getTol <baseclasses.BaseRegTest.getTol>` on how to specif tolerances.
         """
         if self.comm is None:
             raise Error("Parallel functionality requires mpi4py!")
-        reducedSum = self.comm.reduce(numpy.sum(values))
+        reducedSum = self.comm.reduce(np.sum(values))
         with multi_proc_exception_check(self.comm):
             if self.rank == 0:
                 self._add_values(name, reducedSum, **kwargs)
@@ -248,24 +249,41 @@ class BaseRegTest:
             The name of the value
         values : ndarray
             The array to be added. This must be a numpy array distributed over self.comm
-        **kwargs
+        \*\*kwargs
             See :meth:`getTol <baseclasses.BaseRegTest.getTol>` on how to specif tolerances.
         """
         if self.comm is None:
             raise Error("Parallel functionality requires mpi4py!")
-        reducedSum = self.comm.reduce(numpy.sum(values ** 2))
+        reducedSum = self.comm.reduce(np.sum(values**2))
         with multi_proc_exception_check(self.comm):
             if self.rank == 0:
-                self._add_values(name, numpy.sqrt(reducedSum), **kwargs)
+                self._add_values(name, np.sqrt(reducedSum), **kwargs)
 
     # *****************
     # Private functions
     # *****************
     def assert_allclose(self, actual, reference, name, rtol, atol, full_name=None):
+        """This is basically a wrapper on numpy.testing.assert_allclose with a generated error message"""
         if full_name is None:
             full_name = name
         msg = f"Failed value for: {full_name}"
-        numpy.testing.assert_allclose(actual, reference, rtol=rtol, atol=atol, err_msg=msg)
+        np.testing.assert_allclose(actual, reference, rtol=rtol, atol=atol, err_msg=msg)
+
+    def assert_equal(self, actual, reference, name, full_name=None):
+        if full_name is None:
+            full_name = name
+        # special case where we treat tuples and lists the same
+        # we compare each element
+        if isinstance(reference, (list, tuple)):
+            for i, j in zip(reference, actual):
+                # cast both to tuple
+                if i != j:
+                    raise AssertionError(f"The elements do not match! Expected {i}, but got {j} instead.")
+        # otherwise use the builtin __eq__ comparison
+        elif actual != reference:
+            msg = f"Failed value for: {full_name}"
+            msg += f"Expected {pformat(reference)}, but got {pformat(actual)}"
+            raise AssertionError(msg)
 
     def _add_values(self, name, values, db=None, **kwargs):
         """
@@ -298,11 +316,16 @@ class BaseRegTest:
         if db is None:
             db = self.db
         if not self.train or (self.train and compare):
-            self.assert_allclose(values, db[name], name, rtol, atol, full_name)
+            # if the values contain numeric data
+            if np.issubdtype(np.array(values).dtype, np.number):
+                self.assert_allclose(values, db[name], name, rtol, atol, full_name)
+            # otherwise perform equality comparison
+            else:
+                self.assert_equal(values, db[name], name, full_name)
         else:
             if name in db.keys():
                 raise KeyError(f"The name {name} is already in the training database. Please give UNIQUE keys.")
-            if isinstance(values, numpy.ndarray):
+            if isinstance(values, np.ndarray):
                 db[name] = values.copy()
             else:
                 db[name] = values

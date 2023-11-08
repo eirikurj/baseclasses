@@ -7,7 +7,7 @@ Holds the Python Aerodynamic Analysis Classes (base).
 # =============================================================================
 # Standard Python modules
 # =============================================================================
-import numpy
+import numpy as np
 
 # =============================================================================
 # Extension modules
@@ -37,7 +37,6 @@ class AeroSolver(BaseSolver):
         comm=None,
         informs={},
     ):
-
         """
         AeroSolver Class Initialization
         """
@@ -59,8 +58,9 @@ class AeroSolver(BaseSolver):
         self.families = CaseInsensitiveDict()
         self._updateGeomInfo = False
 
-        # Initialize kwargs for addPointSet
+        # Initialize kwargs for addPointSet and customPointSetFamilies
         self.pointSetKwargs = None
+        self.customPointSetFamilies = None
 
     def setMesh(self, mesh):
         """
@@ -84,7 +84,7 @@ class AeroSolver(BaseSolver):
         pts = self.getSurfaceCoordinates(self.meshFamilyGroup)
         self.mesh.setSurfaceDefinition(pts, conn, faceSizes)
 
-    def setDVGeo(self, DVGeo, pointSetKwargs=None):
+    def setDVGeo(self, DVGeo, pointSetKwargs=None, customPointSetFamilies=None):
         """
         Set the DVGeometry object that will manipulate 'geometry' in
         this object. Note that <SOLVER> does not **strictly** need a
@@ -99,6 +99,20 @@ class AeroSolver(BaseSolver):
         pointSetKwargs : dict
             Keyword arguments to be passed to the DVGeo addPointSet call.
             Useful for DVGeometryMulti, specifying FFD projection tolerances, etc.
+            These arguments are used for all point sets added by this solver.
+
+        customPointSetFamilies : dict of dicts
+            This argument is used to split up the surface points added to the DVGeo by the solver into potentially
+            multiple subsets. The keys of the dictionary will be used to determine what families should be
+            added to the dvgeo object as separate point sets. The values of each key is another dictionary, which can be empty.
+            If desired, the inner dictionaries can contain custom kwargs for the addPointSet call for each surface family,
+            specified by the keys of the top level dictionary.
+            The surface families need to be all part of the designSurfaceFamily.
+            Useful for DVGeometryMulti, specifying FFD projection tolerances, etc.
+            If this is provided together with pointSetKwargs, the regular pointSetKwargs
+            will be appended to each component's dictionary. If the same argument
+            is also provided in pointSetKwargs, the value specified in customPointSetFamilies
+            will be used.
 
         Examples
         --------
@@ -108,10 +122,14 @@ class AeroSolver(BaseSolver):
 
         self.DVGeo = DVGeo
 
+        # save the common kwargs dict. default is empty
         if pointSetKwargs is None:
             self.pointSetKwargs = {}
         else:
             self.pointSetKwargs = pointSetKwargs
+
+        # save if we have customPointSetFamilies. this default is not mutable so we can just set it as is.
+        self.customPointSetFamilies = customPointSetFamilies
 
     def getTriangulatedMeshSurface(self, groupName=None, **kwargs):
         """
@@ -133,7 +151,7 @@ class AeroSolver(BaseSolver):
         # groupName
         pts = self.comm.allgather(self.getSurfaceCoordinates(groupName, **kwargs))
         conn, faceSizes = self.getSurfaceConnectivity(groupName)
-        conn = numpy.array(conn).flatten()
+        conn = np.array(conn).flatten()
         conn = self.comm.allgather(conn)
         faceSizes = self.comm.allgather(faceSizes)
 
@@ -144,7 +162,6 @@ class AeroSolver(BaseSolver):
 
         # loop over the faces
         for iProc in range(len(faceSizes)):
-
             connCounter = 0
             for iFace in range(len(faceSizes[iProc])):
                 # Get the number of nodes on this face
@@ -339,7 +356,7 @@ class AeroSolver(BaseSolver):
         # It is very important that the list of families is sorted
         # becuase in fortran we always use a binary search to check if
         # a famID is in the list.
-        self.familyGroups[groupName] = sorted(numpy.unique(indices))
+        self.familyGroups[groupName] = sorted(np.unique(indices))
 
     def getSurfaceCoordinates(self,group_name):
         """
@@ -509,7 +526,6 @@ class AeroSolver(BaseSolver):
     # --------------------------
 
     def _getFamilyList(self, groupName):
-
         if groupName is None:
             groupName = self.allFamilies
 

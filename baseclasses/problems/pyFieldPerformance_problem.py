@@ -55,7 +55,8 @@ class FieldPerformanceProblem:
     span : float
         Total wingspan
 
-    ** Note ** Thrust and weight should be specified in terms of force.
+    \*\* Note \*\* Thrust and weight should be specified in terms of force.
+
     T_VA : float
         Idle thrust during approach. <force>
     T_VF : float
@@ -75,7 +76,8 @@ class FieldPerformanceProblem:
     TOW : float
         Takeoff gross weight. <force>
 
-    ** Note ** TSFC should be specified in terms of mass / time / force.
+    \*\* Note \*\* TSFC should be specified in terms of mass / time / force.
+
     TSFC_VA : float
         Thrust-specific fuel consumption with engine in idle during approach.
     TSFC_VF : float
@@ -92,11 +94,13 @@ class FieldPerformanceProblem:
     Examples
     --------
     FP = FieldPerformance('gulfstream')
+
     fpp = FieldPerformanceProblem(name='fpp1',TOW=W,span=b,CLmax=CLmax,
                                   WingHeight=5.6,runwayFrictionCoef=0.04,Area=S,
                                   CD0=0.015,CD0_LG=0.0177,CD0_HL=0,
                                   T_VG=T_VG,T_VT=T_VT,TSFC_VG=TSFC,TSFC_VT=TSFC,
                                   altitude=0,units='english')
+
     fpp.addDV('TOW')
     funcs = {}
     funcsSens = {}
@@ -165,7 +169,7 @@ class FieldPerformanceProblem:
         if "evalFuncs" in kwargs:
             self.evalFuncs = set(kwargs["evalFuncs"])
         if "funcs" in kwargs:
-            warnings.warn("funcs should **not** be an argument. Use 'evalFuncs' instead.")
+            warnings.warn("funcs should **not** be an argument. Use 'evalFuncs' instead.", stacklevel=2)
             self.evalFuncs = set(kwargs["funcs"])
 
         # Specify the set of possible design variables:
@@ -332,7 +336,6 @@ class FieldPerformanceProblem:
                 )
 
     def __getitem__(self, key):
-
         return self.funcNames[key]
 
     def __str__(self):
@@ -348,8 +351,8 @@ class FieldPerformanceProblem:
     #     h = 1e-40j; hr = 1e-40
     #     for key in self.DVNames:
     #         setattr(self, key, getattr(self, key) + h)
-    #         rDict[self.DVNames[key]] = numpy.imag(self.__dict__[func])/hr
-    #         setattr(self, key, numpy.real(getattr(self, key)))
+    #         rDict[self.DVNames[key]] = np.imag(self.__dict__[func])/hr
+    #         setattr(self, key, np.real(getattr(self, key)))
 
     #     return rDict
 
